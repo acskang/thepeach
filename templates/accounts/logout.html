@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Logout | ThePeach{% endblock %}
+{% block hero_title %}Central Logout{% endblock %}
+{% block hero_subtitle %}Revoke the centralized refresh token so connected services can later follow platform-managed logout policy.{% endblock %}
+
+{% block content %}
+<div class="panel stack">
+  <div>
+    <h2>Logout API</h2>
+    <pre>POST /api/v1/auth/logout/</pre>
+  </div>
+  <div class="nav">
+    <button id="logout-action" type="button">Revoke Refresh Token</button>
+  </div>
+  <pre id="logout-result">This page reads the locally stored access/refresh token pair and calls the centralized logout API.</pre>
+</div>
+
+<script>
+  document.getElementById("logout-action").addEventListener("click", async () => {
+    const accessToken = localStorage.getItem("thepeach_access_token");
+    const refreshToken = localStorage.getItem("thepeach_refresh_token");
+    const logoutResult = document.getElementById("logout-result");
+
+    if (!accessToken || !refreshToken) {
+      logoutResult.textContent = "No stored tokens found.";
+      return;
+    }
+
+    const response = await fetch("/api/v1/auth/logout/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+    const payload = await response.json();
+    logoutResult.textContent = JSON.stringify(payload, null, 2);
+
+    if (response.ok && payload.success) {
+      localStorage.removeItem("thepeach_access_token");
+      localStorage.removeItem("thepeach_refresh_token");
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Portal | ThePeach{% endblock %}
+{% block hero_title %}Identity Portal{% endblock %}
+{% block hero_subtitle %}This operator-facing helper page reads the centralized JWT identity and exposes centralized logout behavior without replacing the API-first platform contract.{% endblock %}
+
+{% block content %}
+<div class="grid two">
+  <section class="panel stack">
+    <div>
+      <h2>Actions</h2>
+      <div class="nav">
+        <button id="load-profile" type="button">Load Profile</button>
+        <button id="logout" type="button" class="secondary">Central Logout</button>
+      </div>
+    </div>
+    <div>
+      <h2>Current User</h2>
+      <pre id="profile-result">Load the current JWT-authenticated profile from /api/v1/auth/me/.</pre>
+    </div>
+  </section>
+  <section class="panel stack">
+    <div>
+      <h2>SSO Direction</h2>
+      <p class="muted">ThePeach is the current identity source. Future connected services can trust this central login, token lifecycle, and logout policy through gateway and registered application integration.</p>
+    </div>
+    <div>
+      <h2>Registry Shortcuts</h2>
+      <div class="nav">
+        <a class="button secondary" href="/applications/">Application Registry</a>
+        <a class="button secondary" href="/applications/new/">Register Application</a>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  const profileResult = document.getElementById("profile-result");
+  const accessTokenKey = "thepeach_access_token";
+  const refreshTokenKey = "thepeach_refresh_token";
+
+  document.getElementById("load-profile").addEventListener("click", async () => {
+    const token = localStorage.getItem(accessTokenKey);
+    if (!token) {
+      profileResult.textContent = "No access token found. Login first.";
+      return;
+    }
+
+    const response = await fetch("/api/v1/auth/me/", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    profileResult.textContent = JSON.stringify(data, null, 2);
+  });
+
+  document.getElementById("logout").addEventListener("click", async () => {
+    const accessToken = localStorage.getItem(accessTokenKey);
+    const refreshToken = localStorage.getItem(refreshTokenKey);
+
+    if (!accessToken || !refreshToken) {
+      profileResult.textContent = "No tokens found. Nothing to revoke.";
+      return;
+    }
+
+    const response = await fetch("/api/v1/auth/logout/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+    const data = await response.json();
+    profileResult.textContent = JSON.stringify(data, null, 2);
+
+    if (response.ok && data.success) {
+      localStorage.removeItem(accessTokenKey);
+      localStorage.removeItem(refreshTokenKey);
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Register Application | ThePeach{% endblock %}
+{% block hero_title %}Register Application{% endblock %}
+{% block hero_subtitle %}Create or update platform-governed application metadata so future service integrations are explicit, auditable, and SSO-ready.{% endblock %}
+
+{% block content %}
+<div class="grid two">
+  <section class="panel">
+    <h2 id="form-title">Application Form</h2>
+    <form id="application-form">
+      <div>
+        <label for="company_id">Company UUID</label>
+        <input id="company_id" name="company_id" type="text" required>
+      </div>
+      <div>
+        <label for="app_code">App Code</label>
+        <input id="app_code" name="app_code" type="text" required>
+      </div>
+      <div>
+        <label for="app_name">App Name</label>
+        <input id="app_name" name="app_name" type="text" required>
+      </div>
+      <div>
+        <label for="app_domain">App Domain</label>
+        <input id="app_domain" name="app_domain" type="text" required>
+      </div>
+      <div>
+        <label for="app_base_url">App Base URL</label>
+        <input id="app_base_url" name="app_base_url" type="url" required>
+      </div>
+      <div>
+        <label for="app_description">Description</label>
+        <textarea id="app_description" name="app_description" rows="4"></textarea>
+      </div>
+      <div>
+        <label for="requires_sso">Requires SSO</label>
+        <select id="requires_sso" name="requires_sso">
+          <option value="true" selected>true</option>
+          <option value="false">false</option>
+        </select>
+      </div>
+      <button type="submit">Save Application</button>
+    </form>
+  </section>
+  <section class="panel stack">
+    <div>
+      <h2>API Mapping</h2>
+      <pre id="api-target">POST /api/v1/services/applications/</pre>
+    </div>
+    <div>
+      <h2>Response</h2>
+      <pre id="application-form-result">Use this form to create or update a registered application through the platform API.</pre>
+    </div>
+  </section>
+</div>
+
+<script>
+  const applicationId = "{{ application_id }}";
+  const applicationForm = document.getElementById("application-form");
+  const applicationFormResult = document.getElementById("application-form-result");
+  const apiTarget = document.getElementById("api-target");
+  const formTitle = document.getElementById("form-title");
+
+  async function fetchApplication() {
+    if (!applicationId) {
+      return;
+    }
+
+    const token = localStorage.getItem("thepeach_access_token");
+    if (!token) {
+      applicationFormResult.textContent = "Login first to edit an application.";
+      return;
+    }
+
+    formTitle.textContent = "Edit Registered Application";
+    apiTarget.textContent = `PUT /api/v1/services/applications/${applicationId}/`;
+
+    const response = await fetch(`/api/v1/services/applications/${applicationId}/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await response.json();
+    applicationFormResult.textContent = JSON.stringify(payload, null, 2);
+
+    if (!payload.success) {
+      return;
+    }
+
+    const data = payload.data;
+    document.getElementById("company_id").value = data.company.id;
+    document.getElementById("company_id").readOnly = true;
+    document.getElementById("app_code").value = data.app_code;
+    document.getElementById("app_name").value = data.app_name;
+    document.getElementById("app_domain").value = data.app_domain;
+    document.getElementById("app_base_url").value = data.app_base_url;
+    document.getElementById("app_description").value = data.app_description;
+    document.getElementById("requires_sso").value = String(data.requires_sso);
+  }
+
+  applicationForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const token = localStorage.getItem("thepeach_access_token");
+    if (!token) {
+      applicationFormResult.textContent = "Login first to save registry changes.";
+      return;
+    }
+
+    const formData = Object.fromEntries(new FormData(applicationForm).entries());
+    formData.requires_sso = formData.requires_sso === "true";
+    const method = applicationId ? "PUT" : "POST";
+    const endpoint = applicationId
+      ? `/api/v1/services/applications/${applicationId}/`
+      : "/api/v1/services/applications/";
+
+    const response = await fetch(endpoint, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(formData),
+    });
+    const payload = await response.json();
+    applicationFormResult.textContent = JSON.stringify(payload, null, 2);
+  });
+
+  fetchApplication();
+</script>
+{% endblock %}

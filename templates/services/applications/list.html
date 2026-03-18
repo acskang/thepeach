@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Applications | ThePeach{% endblock %}
+{% block hero_title %}Application Registry{% endblock %}
+{% block hero_subtitle %}ThePeach is the governance source of truth for registered applications, screens, and features that will later participate in central auth trust and gateway integration.{% endblock %}
+
+{% block content %}
+<div class="panel stack">
+  <div class="nav">
+    <a class="button" href="/applications/new/">Register New Application</a>
+    <button id="load-applications" type="button" class="secondary">Refresh Registry</button>
+  </div>
+  <div class="muted">Requires a valid access token from the centralized login page.</div>
+  <table>
+    <thead>
+      <tr>
+        <th>App</th>
+        <th>Code</th>
+        <th>Domain</th>
+        <th>SSO</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="application-body">
+      <tr><td colspan="5" class="muted">Load applications from /api/v1/services/applications/.</td></tr>
+    </tbody>
+  </table>
+  <pre id="application-result">The standardized response envelope will appear here.</pre>
+</div>
+
+<script>
+  const applicationBody = document.getElementById("application-body");
+  const applicationResult = document.getElementById("application-result");
+
+  async function loadApplications() {
+    const token = localStorage.getItem("thepeach_access_token");
+    if (!token) {
+      applicationResult.textContent = "Login first to load registered applications.";
+      return;
+    }
+
+    const response = await fetch("/api/v1/services/applications/", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json();
+    applicationResult.textContent = JSON.stringify(data, null, 2);
+
+    const rows = (data.data && data.data.results) || [];
+    if (!rows.length) {
+      applicationBody.innerHTML = '<tr><td colspan="5" class="muted">No registered applications found.</td></tr>';
+      return;
+    }
+
+    applicationBody.innerHTML = rows.map((row) => `
+      <tr>
+        <td><a href="/applications/${row.id}/edit/">${row.app_name}</a></td>
+        <td>${row.app_code}</td>
+        <td>${row.app_domain}</td>
+        <td>${row.requires_sso ? "Required" : "Optional"}</td>
+        <td><span class="status">${row.is_active ? "Active" : "Inactive"}</span></td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("load-applications").addEventListener("click", loadApplications);
+  loadApplications();
+</script>
+{% endblock %}

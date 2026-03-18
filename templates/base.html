@@ -1,0 +1,21 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ThePeach{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+</head>
+<body>
+  {% include "partials/navbar.html" %}
+  <main class="shell">
+    <header class="hero">
+      <h1>{% block hero_title %}ThePeach{% endblock %}</h1>
+      <p>{% block hero_subtitle %}Central platform architecture for identity, registry, integration readiness, and reusable operator workflows.{% endblock %}</p>
+    </header>
+    {% block content %}{% endblock %}
+  </main>
+  {% include "partials/footer.html" %}
+</body>
+</html>

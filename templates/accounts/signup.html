@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Signup | ThePeach{% endblock %}
+{% block hero_title %}Central Signup{% endblock %}
+{% block hero_subtitle %}Create a ThePeach identity that future connected services can trust through centralized JWT-based authentication.{% endblock %}
+
+{% block content %}
+<div class="grid two">
+  <section class="panel">
+    <h2>Signup Form</h2>
+    <form id="signup-form">
+      <div>
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" required>
+      </div>
+      <div>
+        <label for="full_name">Full Name</label>
+        <input id="full_name" name="full_name" type="text" required>
+      </div>
+      <div>
+        <label for="smartphone_number">Smartphone Number</label>
+        <input id="smartphone_number" name="smartphone_number" type="text" placeholder="+821012345678">
+      </div>
+      <div>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" required>
+      </div>
+      <button type="submit">Create Identity</button>
+    </form>
+  </section>
+  <section class="panel stack">
+    <div>
+      <h2>API Target</h2>
+      <p class="muted">This page calls the centralized platform auth API directly.</p>
+      <pre>POST /api/v1/auth/signup/</pre>
+    </div>
+    <div>
+      <h2>Response</h2>
+      <pre id="signup-result">Submit the form to see the standardized ThePeach response envelope.</pre>
+    </div>
+  </section>
+</div>
+
+<script>
+  const signupForm = document.getElementById("signup-form");
+  const signupResult = document.getElementById("signup-result");
+
+  signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const payload = Object.fromEntries(new FormData(signupForm).entries());
+    const response = await fetch("/api/v1/auth/signup/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    signupResult.textContent = JSON.stringify(data, null, 2);
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Logo Registry | ThePeach{% endblock %}
+{% block hero_title %}Logo Asset Registry{% endblock %}
+{% block hero_subtitle %}Browse active and inactive platform logo assets linked to registered applications.{% endblock %}
+
+{% block content %}
+<div class="panel stack">
+  <div class="nav">
+    <a class="button" href="/logos/upload/">Upload Logo</a>
+    <button id="load-logos" type="button" class="secondary">Refresh</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Preview</th>
+        <th>Logo</th>
+        <th>Application</th>
+        <th>Usage</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="logo-table-body">
+      <tr><td colspan="5" class="muted">Load logos from /api/v1/media/logos/.</td></tr>
+    </tbody>
+  </table>
+  <pre id="logo-list-result">The standardized response envelope will appear here.</pre>
+</div>
+
+<script>
+  async function loadLogos() {
+    const token = localStorage.getItem("thepeach_access_token");
+    const result = document.getElementById("logo-list-result");
+    const body = document.getElementById("logo-table-body");
+
+    if (!token) {
+      result.textContent = "Login first to view logo assets.";
+      return;
+    }
+
+    const response = await fetch("/api/v1/media/logos/", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await response.json();
+    result.textContent = JSON.stringify(payload, null, 2);
+
+    const rows = (payload.data && payload.data.results) || [];
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" class="muted">No logo assets found.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = rows.map((row) => `
+      <tr>
+        <td>${row.file_url ? `<img src="${row.file_url}" alt="${row.alt_text || row.logo_name}" style="max-width:64px;max-height:64px;border-radius:8px;border:1px solid #d8c8ad;">` : ""}</td>
+        <td><a href="/logos/${row.id}/edit/">${row.logo_name}</a><br><span class="muted">${row.logo_code}</span></td>
+        <td>${row.application.app_name}<br><span class="muted">${row.application.app_code}</span></td>
+        <td>${row.usage_type}</td>
+        <td><span class="status">${row.is_active ? "Active" : "Inactive"}</span></td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("load-logos").addEventListener("click", loadLogos);
+  loadLogos();
+</script>
+{% endblock %}

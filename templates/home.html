@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+
+{% block title %}ThePeach Platform{% endblock %}
+{% block hero_title %}ThePeach Platform{% endblock %}
+{% block hero_subtitle %}ThePeach is a central architecture platform for AI-integrated services.{% endblock %}
+
+{% block content %}
+<div class="grid two">
+  <section class="panel stack">
+    <h2>Platform Foundation</h2>
+    <p class="muted">
+      ThePeach provides a reusable operator-facing platform layer over centralized authentication,
+      application registration, media assets, and integration-ready APIs.
+    </p>
+    <div class="action-row">
+      <a class="button" href="/applications/">Application Management</a>
+      <a class="button secondary" href="/logos/">Logo Management</a>
+      <a class="button secondary" href="/api/v1/">API Base</a>
+    </div>
+  </section>
+  <section class="panel stack">
+    <h2>Quick Links</h2>
+    <ul class="link-list">
+      <li><a href="/auth/signup/">Create a centralized identity</a></li>
+      <li><a href="/auth/login/">Issue centralized JWT credentials</a></li>
+      <li><a href="/applications/new/">Register an application service</a></li>
+      <li><a href="/logos/upload/">Register a reusable logo asset</a></li>
+    </ul>
+  </section>
+</div>
+{% endblock %}
