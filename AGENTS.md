@@ -36,3 +36,5 @@
 ## Repository Safety Rule
 
 - Do not delete or clean up files under `codex-history/` unless the user explicitly overrides this policy.
+- `codex-history/` is local-only operational history and must not be committed or pushed to GitHub.
+- Files containing personal information, private credentials, or sensitive user/operator data must not be committed or pushed to GitHub.
