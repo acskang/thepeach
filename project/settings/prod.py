@@ -8,12 +8,21 @@ if DEBUG:
     raise ImproperlyConfigured("Production settings must not run with DEBUG=True.")
 
 if not ALLOWED_HOSTS:
-    raise ImproperlyConfigured("DJANGO_ALLOWED_HOSTS must be configured for production.")
+    ALLOWED_HOSTS = []
+ALLOWED_HOSTS = sorted(
+    {
+        *ALLOWED_HOSTS,
+        THEPEACH_PUBLIC_DOMAIN,
+        THEPEACH_OPS_DOMAIN,
+        THEPEACH_INTERNAL_AUTH_DOMAIN,
+    }
+)
 
 if not CSRF_TRUSTED_ORIGINS:
     CSRF_TRUSTED_ORIGINS = [
-        "https://thesysm.com",
-        "https://*.thesysm.com",
+        THEPEACH_PUBLIC_BASE_URL,
+        THEPEACH_OPS_BASE_URL,
+        THEPEACH_INTERNAL_AUTH_BASE_URL,
     ]
 
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
@@ -40,3 +49,4 @@ LOGGING["handlers"]["app_file"]["filename"] = str(LOG_DIR / "application.log")
 LOGGING["handlers"]["error_file"]["filename"] = str(LOG_DIR / "error.log")
 LOGGING["handlers"]["auth_file"]["filename"] = str(LOG_DIR / "auth.log")
 LOGGING["handlers"]["api_file"]["filename"] = str(LOG_DIR / "api.log")
+LOGGING["handlers"]["security_file"]["filename"] = str(LOG_DIR / "security.log")

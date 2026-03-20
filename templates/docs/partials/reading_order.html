@@ -1,0 +1,14 @@
+<section class="panel stack docs-section">
+  <div class="section-heading">
+    <h2>Recommended Reading Order</h2>
+    <p class="muted">A guided path for new maintainers and integrators entering the platform.</p>
+  </div>
+  <ol class="docs-reading-order">
+    {% for document in reading_documents %}
+      <li>
+        <a href="{{ document.available_url }}">{{ document.title }}</a>
+        <span class="muted">{{ document.summary }}</span>
+      </li>
+    {% endfor %}
+  </ol>
+</section>

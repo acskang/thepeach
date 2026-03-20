@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Platform Documentation | ThePeach{% endblock %}
+{% block hero_title %}Platform Documentation{% endblock %}
+{% block hero_subtitle %}ThePeach operational and architectural knowledge hub for developers, operators, maintainers, and integrators.{% endblock %}
+
+{% block content %}
+{% include "docs/partials/hero.html" %}
+
+<div class="docs-layout">
+  <div class="docs-main stack">
+    {% include "docs/partials/reading_order.html" with reading_documents=reading_order_documents %}
+
+    <section class="panel stack docs-section">
+      <div class="section-heading">
+        <h2>Featured Core Documents</h2>
+        <p class="muted">Start with these platform-defining guides before diving into specific service or deployment details.</p>
+      </div>
+      <div class="docs-card-grid">
+        {% for document in featured_documents %}
+          {% include "docs/partials/document_card.html" with document=document %}
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel stack docs-section">
+      <div class="section-heading">
+        <h2>Documentation Categories</h2>
+        <p class="muted">Browse curated groups of documents based on platform concern and operational purpose.</p>
+      </div>
+      {% for category_title, documents in category_sections.items %}
+        {% include "docs/partials/category_section.html" with category_title=category_title documents=documents %}
+      {% endfor %}
+    </section>
+
+    <section class="panel stack docs-section">
+      <div class="section-heading">
+        <h2>Full Document Index</h2>
+        <p class="muted">Every published ThePeach document mapped from the repository registry.</p>
+      </div>
+      <div class="docs-index-list">
+        {% for document in documents %}
+          <article class="docs-index-row">
+            <div>
+              <a class="docs-index-link" href="{{ document.available_url }}">{{ document.title }}</a>
+              <p class="muted">{{ document.summary }}</p>
+            </div>
+            <div class="docs-index-meta">
+              <span class="status">{{ document.status_label }}</span>
+              <span class="muted">{{ document.category_title }}</span>
+            </div>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <aside class="docs-sidebar stack">
+    <section class="panel stack docs-section">
+      <h2>Platform Concepts Summary</h2>
+      <div class="docs-concepts">
+        {% for concept in platform_concepts %}
+          <article class="docs-concept">
+            <h3>{{ concept.name }}</h3>
+            <p class="muted">{{ concept.summary }}</p>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel stack docs-section">
+      <h2>Production Summary</h2>
+      <ul class="link-list">
+        {% for item in production_summary %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="panel stack docs-section">
+      <h2>Useful Navigation</h2>
+      <div class="docs-nav-links">
+        {% for item in useful_navigation %}
+          <a class="button secondary" href="{{ item.url }}">{{ item.label }}</a>
+        {% endfor %}
+      </div>
+    </section>
+  </aside>
+</div>
+{% endblock %}

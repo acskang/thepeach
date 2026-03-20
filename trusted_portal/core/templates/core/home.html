@@ -1,0 +1,58 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trusted Portal</title>
+    <link rel="stylesheet" href="{% static 'core/site.css' %}">
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="/">Trusted Portal</a>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/auth/login/">Login</a>
+          <a href="/api/v1/auth/me/">Auth Me</a>
+          <a href="/api/v1/example/auth-status/">Auth Status API</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="hero-shell">
+      <section class="hero-card">
+        <p class="eyebrow">ThePeach-connected Django service</p>
+        <h1>Navbar-equipped homepage for a service that trusts upstream auth.</h1>
+        <p class="lede">
+          This service does not run its own login system. It reads identity from ThePeach
+          <code>/api/v1/auth/me/</code> and exposes request-local user context.
+        </p>
+
+        <div class="status-grid">
+          <article class="status-card">
+            <span class="status-label">Authentication</span>
+            <strong>{% if user %}Authenticated{% else %}Anonymous{% endif %}</strong>
+          </article>
+          <article class="status-card">
+            <span class="status-label">Source</span>
+            <strong>{{ auth_source }}</strong>
+          </article>
+          <article class="status-card">
+            <span class="status-label">Current User</span>
+            <strong>{% if user %}{{ user.email }}{% else %}No upstream token{% endif %}</strong>
+          </article>
+        </div>
+
+        <section class="detail-panel">
+          <h2>What this service does</h2>
+          <ul>
+            <li>Uses a reusable client layer to call ThePeach auth introspection endpoint.</li>
+            <li>Applies DRF authentication for API routes and middleware for plain Django views.</li>
+            <li>Keeps permissions local while leaving authentication truth in ThePeach.</li>
+          </ul>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

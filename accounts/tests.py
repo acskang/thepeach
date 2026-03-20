@@ -4,6 +4,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 
 from accounts.models import Company, Department, UserDepartmentMembership
 from logs.models import AuthEventLog
@@ -119,6 +120,7 @@ class AccountsAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["success"])
         self.assertTrue(response.data["data"]["architecture"]["sso_ready"])
+        self.assertEqual(response.data["data"]["zone"], "public")
 
     def test_token_refresh_endpoint_works_under_auth_prefix(self):
         self.client.post(
@@ -189,3 +191,103 @@ class AccountsAPITestCase(APITestCase):
         self.assertFalse(payload["success"])
         self.assertIsNone(payload["data"])
         self.assertIn("code", payload["error"])
+
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com", "thepeach.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=(),
+    )
+    def test_internal_auth_manifest_is_blocked_on_public_host(self):
+        self.client.post(
+            "/api/v1/auth/signup/",
+            {
+                "email": "internal-public-block@example.com",
+                "full_name": "Internal Block",
+                "smartphone_number": "+821077770011",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        login_response = self.client.post(
+            "/api/v1/auth/login/",
+            {
+                "email": "internal-public-block@example.com",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['data']['access']}")
+
+        response = self.client.get("/api/v1/auth/internal/", format="json", HTTP_HOST="thepeach.thesysm.com")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["error"]["code"], "internal_access_required")
+
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=(),
+    )
+    def test_internal_auth_manifest_is_available_on_ops_host(self):
+        self.client.post(
+            "/api/v1/auth/signup/",
+            {
+                "email": "internal-ok@example.com",
+                "full_name": "Internal Ok",
+                "smartphone_number": "+821077770012",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        login_response = self.client.post(
+            "/api/v1/auth/login/",
+            {
+                "email": "internal-ok@example.com",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['data']['access']}")
+
+        response = self.client.get("/api/v1/auth/internal/", format="json", HTTP_HOST="ops.thesysm.com")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["data"]["zone"], "internal")
+        self.assertIn("auth_event_summary", response.data["data"]["internal_endpoints"])
+
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=("CF-Access-Authenticated-User-Email",),
+    )
+    def test_internal_auth_endpoint_can_require_proxy_header(self):
+        self.client.post(
+            "/api/v1/auth/signup/",
+            {
+                "email": "internal-header@example.com",
+                "full_name": "Internal Header",
+                "smartphone_number": "+821077770013",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        login_response = self.client.post(
+            "/api/v1/auth/login/",
+            {
+                "email": "internal-header@example.com",
+                "password": "StrongPass123",
+            },
+            format="json",
+        )
+        self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {login_response.data['data']['access']}")
+
+        denied = self.client.get("/api/v1/auth/internal/", format="json", HTTP_HOST="ops.thesysm.com")
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+
+        allowed = self.client.get(
+            "/api/v1/auth/internal/",
+            format="json",
+            HTTP_HOST="ops.thesysm.com",
+            HTTP_CF_ACCESS_AUTHENTICATED_USER_EMAIL="ops@example.com",
+        )
+        self.assertEqual(allowed.status_code, status.HTTP_200_OK)

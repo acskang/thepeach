@@ -14,6 +14,8 @@ ThePeach provides the shared platform layer for:
 
 Application teams should build business logic on top of ThePeach rather than re-implementing platform concerns.
 
+This repository also contains a separate example Django service at `trusted_portal/` that trusts ThePeach `/api/v1/auth/me/` as its authentication source instead of creating a second login system.
+
 ## Current Repository Structure
 
 This repository currently uses root-level Django apps and `project/settings/`.
@@ -25,6 +27,7 @@ ThePeach/
 ├── gateway/
 ├── logs/
 ├── media/
+├── trusted_portal/
 ├── services/
 ├── project/
 │   └── settings/
@@ -61,9 +64,12 @@ python manage.py runserver
 
 - Production settings module: `project.settings.prod`
 - Deployment path: Cloudflare -> Nginx -> Gunicorn -> Django
+- Public host: `thepeach.thesysm.com`
+- Internal ops host: `ops.thesysm.com`
 - Nginx should serve `/static/` and `/media/` directly
 - Gunicorn should run Django with an explicit `DJANGO_SETTINGS_MODULE=project.settings.prod`
 - Runtime logs should be written to a filesystem-backed log directory, not committed to Git
+- High-risk admin and internal gateway/auth routes should be served only through the internal ops host
 
 ## Git / GitHub
 

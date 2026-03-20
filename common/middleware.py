@@ -2,7 +2,10 @@ import logging
 import time
 import uuid
 
+from django.http import HttpResponseForbidden, JsonResponse
+
 from common.logging import request_id_context
+from common.internal_access import build_internal_access_context, is_internal_route, log_internal_access_attempt
 from logs.services import safe_create_api_request_log, safe_create_system_log
 
 request_logger = logging.getLogger("common.request")
@@ -62,3 +65,42 @@ class RequestContextLoggingMiddleware:
                 )
 
             request_id_context.reset(token)
+
+
+class InternalRouteAccessMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if is_internal_route(request.path):
+            context = build_internal_access_context(request)
+            if not context["allowed"]:
+                log_internal_access_attempt(
+                    request=request,
+                    allowed=False,
+                    reason=context["failure_reason"],
+                    source="middleware.internal_route",
+                )
+                if request.path.startswith("/api/"):
+                    return JsonResponse(
+                        {
+                            "success": False,
+                            "data": None,
+                            "error": {
+                                "code": "internal_access_required",
+                                "message": "This endpoint is available only through internal operations access.",
+                                "details": context,
+                            },
+                        },
+                        status=403,
+                    )
+                return HttpResponseForbidden("Internal operations access is required.")
+
+            log_internal_access_attempt(
+                request=request,
+                allowed=True,
+                reason="host_and_header_check_passed",
+                source="middleware.internal_route",
+            )
+
+        return self.get_response(request)

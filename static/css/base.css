@@ -72,16 +72,30 @@ a {
 }
 
 .site-nav__links a,
-.site-nav__auth a {
+.site-nav__auth a,
+.site-nav__action {
   text-decoration: none;
   color: var(--muted);
   font-weight: 700;
 }
 
+.site-nav__auth a[hidden],
+.site-nav__auth button[hidden] {
+  display: none;
+}
+
 .site-nav__links a:hover,
 .site-nav__auth a:hover,
+.site-nav__action:hover,
 .link-list a:hover {
   color: var(--accent-dark);
+}
+
+.site-nav__action {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font: inherit;
 }
 
 .hero {
@@ -240,6 +254,83 @@ td {
   color: var(--muted);
 }
 
+.modal-open {
+  overflow: hidden;
+}
+
+.auth-modal[hidden] {
+  display: none !important;
+}
+
+.auth-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 5vh 16px 24px;
+  overflow-y: auto;
+}
+
+.auth-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(29, 26, 22, 0.55);
+}
+
+.auth-modal__dialog {
+  position: relative;
+  z-index: 1;
+  width: min(640px, 100%);
+  margin: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.22);
+  padding: 24px;
+}
+
+.auth-modal__close {
+  position: absolute;
+  right: 18px;
+  top: 16px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  padding: 0;
+  font-size: 1.5rem;
+  line-height: 1;
+  background: #efe2cf;
+  color: var(--ink);
+}
+
+.auth-modal__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.auth-modal__tab {
+  background: #efe2cf;
+  color: var(--ink);
+}
+
+.auth-modal__tab.is-active {
+  background: var(--accent);
+  color: white;
+}
+
+.auth-modal__panel {
+  display: grid;
+  gap: 14px;
+}
+
+.auth-modal__panel[hidden] {
+  display: none;
+}
+
 @media (max-width: 720px) {
   .site-nav__inner,
   .site-footer__inner {
@@ -249,5 +340,13 @@ td {
 
   .shell {
     padding: 28px 16px 56px;
+  }
+
+  .auth-modal {
+    padding-top: 3vh;
+  }
+
+  .auth-modal__dialog {
+    padding: 20px;
   }
 }

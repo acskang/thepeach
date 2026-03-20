@@ -10,90 +10,76 @@ from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from accounts.models import Company, Department, UserCompanyMembership, UserDepartmentMembership
-from services.models import RegisteredApplication
-
-from .models import PlatformLogoAsset
+from .models import SharedMediaAsset
 
 User = get_user_model()
-TEST_MEDIA_ROOT = tempfile.mkdtemp(prefix="thepeach-media-tests-")
+TEST_MEDIA_ROOT = tempfile.mkdtemp(prefix="thepeach-shared-media-tests-")
 
 
-@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT)
-class PlatformLogoAssetAPITestCase(APITestCase):
+@override_settings(MEDIA_ROOT=TEST_MEDIA_ROOT, THEPEACH_MEDIA_MAX_UPLOAD_BYTES=1024 * 1024)
+class SharedMediaAssetAPITestCase(APITestCase):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()
         shutil.rmtree(TEST_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
-        self.company = Company.objects.create(name="Logo Corp", code="logo-corp")
-        self.other_company = Company.objects.create(name="Other Corp", code="other-corp")
-        self.department = Department.objects.create(company=self.company, name="Design", code="design")
         self.user = User.objects.create_user(
-            email="logo-admin@example.com",
+            email="asset-admin@example.com",
             password="StrongPass123",
-            full_name="Logo Admin",
-            smartphone_number="+821077700001",
-        )
-        UserCompanyMembership.objects.create(user=self.user, company=self.company, role="member", is_default=True)
-        UserDepartmentMembership.objects.create(user=self.user, department=self.department, role="manager")
-        self.application = RegisteredApplication.objects.create(
-            company=self.company,
-            app_code="brand-portal",
-            app_name="Brand Portal",
-            app_domain="brand.example.com",
-            app_base_url="https://brand.example.com",
-            requires_sso=True,
-        )
-        self.other_application = RegisteredApplication.objects.create(
-            company=self.other_company,
-            app_code="other-portal",
-            app_name="Other Portal",
-            app_domain="other.example.com",
-            app_base_url="https://other.example.com",
-            requires_sso=True,
+            full_name="Asset Admin",
+            smartphone_number="+821077700123",
         )
 
     def _authenticate(self):
         self.client.force_authenticate(user=self.user)
 
-    def _build_png_file(self, *, name="logo.png", size=(64, 64), color=(220, 120, 40)):
+    def _build_png_file(self, *, name="asset.png", size=(64, 64), color=(220, 120, 40)):
         stream = io.BytesIO()
         image = Image.new("RGB", size, color)
         image.save(stream, format="PNG")
         stream.seek(0)
         return SimpleUploadedFile(name, stream.getvalue(), content_type="image/png")
 
-    def test_logo_upload_success(self):
+    def test_upload_success(self):
         self._authenticate()
         response = self.client.post(
-            "/api/v1/media/logos/",
+            "/api/v1/media/assets/",
             {
-                "application_code": self.application.app_code,
-                "logo_code": "brand-primary",
-                "logo_name": "Brand Primary",
-                "usage_type": "primary",
-                "alt_text": "Brand primary logo",
-                "image_file": self._build_png_file(),
+                "title": "Shared Hero",
+                "alt_text": "Shared hero image",
+                "description": "Reusable hero image",
+                "file": self._build_png_file(),
             },
         )
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data["success"])
-        self.assertEqual(response.data["data"]["logo_code"], "brand-primary")
-        self.assertEqual(response.data["data"]["application"]["app_code"], self.application.app_code)
+        self.assertEqual(response.data["data"]["title"], "Shared Hero")
+        self.assertEqual(response.data["data"]["mime_type"], "image/png")
+        self.assertFalse(response.data["data"]["deduplicated"])
 
     def test_invalid_file_type_rejected(self):
         self._authenticate()
         response = self.client.post(
-            "/api/v1/media/logos/",
+            "/api/v1/media/assets/",
             {
-                "application_code": self.application.app_code,
-                "logo_code": "bad-type",
-                "logo_name": "Bad Type",
-                "usage_type": "icon",
-                "image_file": SimpleUploadedFile("bad.txt", b"not-an-image", content_type="text/plain"),
+                "title": "Bad Type",
+                "file": SimpleUploadedFile("bad.txt", b"not-an-image", content_type="text/plain"),
+            },
+        )
+
+        payload = json.loads(response.content)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertFalse(payload["success"])
+
+    def test_corrupted_file_rejected(self):
+        self._authenticate()
+        response = self.client.post(
+            "/api/v1/media/assets/",
+            {
+                "title": "Broken Image",
+                "file": SimpleUploadedFile("broken.png", b"not-really-a-png", content_type="image/png"),
             },
         )
 
@@ -105,17 +91,14 @@ class PlatformLogoAssetAPITestCase(APITestCase):
         self._authenticate()
         huge_file = SimpleUploadedFile(
             "huge.png",
-            b"x" * (5 * 1024 * 1024 + 1),
+            b"x" * (1024 * 1024 + 1),
             content_type="image/png",
         )
         response = self.client.post(
-            "/api/v1/media/logos/",
+            "/api/v1/media/assets/",
             {
-                "application_code": self.application.app_code,
-                "logo_code": "huge-logo",
-                "logo_name": "Huge Logo",
-                "usage_type": "header",
-                "image_file": huge_file,
+                "title": "Huge Asset",
+                "file": huge_file,
             },
         )
 
@@ -123,153 +106,140 @@ class PlatformLogoAssetAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(payload["success"])
 
-    def test_duplicate_logo_code_rejected(self):
+    def test_duplicate_checksum_returns_existing_asset(self):
         self._authenticate()
-        PlatformLogoAsset.objects.create(
-            application=self.application,
-            logo_code="duplicate-code",
-            logo_name="Existing Logo",
-            original_file_name="existing.png",
-            image_file=self._build_png_file(name="existing.png"),
-            file_size=123,
-            mime_type="image/png",
-            width=64,
-            height=64,
-            created_by=self.user,
-            updated_by=self.user,
-        )
-
-        response = self.client.post(
-            "/api/v1/media/logos/",
+        first = self.client.post(
+            "/api/v1/media/assets/",
             {
-                "application_code": self.application.app_code,
-                "logo_code": "duplicate-code",
-                "logo_name": "Duplicate Logo",
-                "usage_type": "header",
-                "image_file": self._build_png_file(name="duplicate.png"),
+                "title": "Shared Asset One",
+                "file": self._build_png_file(name="same.png"),
+            },
+        )
+        second = self.client.post(
+            "/api/v1/media/assets/",
+            {
+                "title": "Shared Asset Two",
+                "file": self._build_png_file(name="same-copy.png"),
             },
         )
 
-        payload = json.loads(response.content)
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertFalse(payload["success"])
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data["data"]["id"], second.data["data"]["id"])
+        self.assertTrue(second.data["data"]["deduplicated"])
 
-    def test_list_filtering_by_application(self):
+    def test_list_endpoint(self):
         self._authenticate()
-        PlatformLogoAsset.objects.create(
-            application=self.application,
-            logo_code="brand-list",
-            logo_name="Brand List",
-            original_file_name="brand.png",
-            image_file=self._build_png_file(name="brand.png"),
+        SharedMediaAsset.objects.create(
+            file=self._build_png_file(name="list.png"),
+            original_file_name="list.png",
+            stored_file_name="list.png",
             file_size=123,
             mime_type="image/png",
             width=64,
             height=64,
+            checksum_sha256="a" * 64,
+            title="List Asset",
             created_by=self.user,
-            updated_by=self.user,
-        )
-        PlatformLogoAsset.objects.create(
-            application=self.other_application,
-            logo_code="other-list",
-            logo_name="Other List",
-            original_file_name="other.png",
-            image_file=self._build_png_file(name="other.png"),
-            file_size=123,
-            mime_type="image/png",
-            width=64,
-            height=64,
         )
 
-        response = self.client.get(f"/api/v1/media/logos/?application={self.application.app_code}", format="json")
+        response = self.client.get("/api/v1/media/assets/", format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data["success"])
         self.assertEqual(response.data["data"]["count"], 1)
-        self.assertEqual(response.data["data"]["results"][0]["logo_code"], "brand-list")
 
-    def test_detail_retrieval(self):
+    def test_detail_endpoint(self):
         self._authenticate()
-        logo = PlatformLogoAsset.objects.create(
-            application=self.application,
-            logo_code="detail-logo",
-            logo_name="Detail Logo",
+        asset = SharedMediaAsset.objects.create(
+            file=self._build_png_file(name="detail.png"),
             original_file_name="detail.png",
-            image_file=self._build_png_file(name="detail.png"),
+            stored_file_name="detail.png",
             file_size=123,
             mime_type="image/png",
             width=64,
             height=64,
+            checksum_sha256="b" * 64,
+            title="Detail Asset",
             created_by=self.user,
-            updated_by=self.user,
         )
 
-        response = self.client.get(f"/api/v1/media/logos/{logo.id}/", format="json")
+        response = self.client.get(f"/api/v1/media/assets/{asset.id}/", format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["data"]["logo_code"], "detail-logo")
+        self.assertEqual(response.data["data"]["title"], "Detail Asset")
 
     def test_metadata_update_success(self):
         self._authenticate()
-        logo = PlatformLogoAsset.objects.create(
-            application=self.application,
-            logo_code="meta-logo",
-            logo_name="Meta Logo",
+        asset = SharedMediaAsset.objects.create(
+            file=self._build_png_file(name="meta.png"),
             original_file_name="meta.png",
-            image_file=self._build_png_file(name="meta.png"),
+            stored_file_name="meta.png",
             file_size=123,
             mime_type="image/png",
             width=64,
             height=64,
+            checksum_sha256="c" * 64,
+            title="Meta Asset",
             created_by=self.user,
-            updated_by=self.user,
         )
 
         response = self.client.patch(
-            f"/api/v1/media/logos/{logo.id}/",
+            f"/api/v1/media/assets/{asset.id}/",
             {
-                "logo_name": "Updated Meta Logo",
-                "usage_type": "header",
+                "title": "Updated Shared Asset",
+                "description": "New description",
             },
             format="json",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["data"]["logo_name"], "Updated Meta Logo")
-        self.assertEqual(response.data["data"]["usage_type"], "header")
+        self.assertEqual(response.data["data"]["title"], "Updated Shared Asset")
+        self.assertEqual(response.data["data"]["description"], "New description")
 
     def test_deactivate_success(self):
         self._authenticate()
-        logo = PlatformLogoAsset.objects.create(
-            application=self.application,
-            logo_code="deactivate-logo",
-            logo_name="Deactivate Logo",
+        asset = SharedMediaAsset.objects.create(
+            file=self._build_png_file(name="deactivate.png"),
             original_file_name="deactivate.png",
-            image_file=self._build_png_file(name="deactivate.png"),
+            stored_file_name="deactivate.png",
             file_size=123,
             mime_type="image/png",
             width=64,
             height=64,
+            checksum_sha256="d" * 64,
+            title="Deactivate Asset",
             is_active=True,
             created_by=self.user,
-            updated_by=self.user,
         )
 
-        response = self.client.post(f"/api/v1/media/logos/{logo.id}/deactivate/", format="json")
+        response = self.client.post(f"/api/v1/media/assets/{asset.id}/deactivate/", format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        logo.refresh_from_db()
-        self.assertFalse(logo.is_active)
+        asset.refresh_from_db()
+        self.assertFalse(asset.is_active)
 
-    def test_unauthorized_upload_rejected(self):
+    def test_unauthorized_write_rejected(self):
         response = self.client.post(
-            "/api/v1/media/logos/",
+            "/api/v1/media/assets/",
             {
-                "application_code": self.application.app_code,
-                "logo_code": "anon-logo",
-                "logo_name": "Anonymous Logo",
-                "usage_type": "icon",
-                "image_file": self._build_png_file(name="anon.png"),
+                "title": "Anonymous Asset",
+                "file": self._build_png_file(name="anon.png"),
             },
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_response_shape_is_stable(self):
+        self._authenticate()
+        response = self.client.post(
+            "/api/v1/media/assets/",
+            {
+                "title": "Stable Shape",
+                "file": self._build_png_file(name="shape.png"),
+            },
+        )
+
+        self.assertIn("success", response.data)
+        self.assertIn("data", response.data)
+        self.assertIn("error", response.data)

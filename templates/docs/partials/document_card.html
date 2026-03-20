@@ -1,0 +1,12 @@
+<article class="docs-card">
+  <div class="docs-card__meta">
+    <span class="status">{{ document.status_label }}</span>
+    <span class="muted">{{ document.category_title }}</span>
+  </div>
+  <h3><a href="{{ document.available_url }}">{{ document.title }}</a></h3>
+  <p class="muted">{{ document.summary }}</p>
+  <div class="docs-card__footer">
+    <span class="muted">Audience: {{ document.audience|join:", " }}</span>
+    <code>{{ document.file_path }}</code>
+  </div>
+</article>

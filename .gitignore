@@ -36,6 +36,19 @@ staticfiles/
 media_files/
 *.log
 
+# Deployment local artifacts
+.prod_ref.txt
+deploy/**/__pycache__/
+deploy/**/*.env
+!deploy/**/*.env.example
+deploy/**/*.bak
+deploy/**/*.tmp
+deploy/**/*.local
+deploy/**/system/
+
+# Codex local history
+codex-history/
+
 # Editor and OS files
 .DS_Store
 .idea/

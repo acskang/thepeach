@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import MediaAsset, PlatformLogoAsset
+from .models import MediaAsset, SharedMediaAsset
 
 
 @admin.register(MediaAsset)
@@ -10,8 +10,8 @@ class MediaAssetAdmin(admin.ModelAdmin):
     search_fields = ("title", "slug", "description", "alt_text", "company__name")
 
 
-@admin.register(PlatformLogoAsset)
-class PlatformLogoAssetAdmin(admin.ModelAdmin):
-    list_display = ("logo_name", "logo_code", "application", "usage_type", "is_active", "created_at")
-    list_filter = ("application__company", "application", "usage_type", "is_active", "created_at")
-    search_fields = ("logo_name", "logo_code", "application__app_name", "application__app_code", "alt_text")
+@admin.register(SharedMediaAsset)
+class SharedMediaAssetAdmin(admin.ModelAdmin):
+    list_display = ("title", "original_file_name", "mime_type", "file_size", "is_active", "created_at")
+    list_filter = ("mime_type", "media_kind", "is_active", "created_at")
+    search_fields = ("title", "original_file_name", "stored_file_name", "checksum_sha256", "alt_text", "description")

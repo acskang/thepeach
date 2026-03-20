@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}{{ document.title }} | ThePeach Docs{% endblock %}
+{% block hero_title %}{{ document.title }}{% endblock %}
+{% block hero_subtitle %}{{ document.summary }}{% endblock %}
+
+{% block content %}
+<div class="docs-layout">
+  <div class="docs-main stack">
+    <nav class="docs-breadcrumbs">
+      <a href="/docs/">Documentation</a>
+      <span>/</span>
+      <span>{{ document.title }}</span>
+    </nav>
+
+    <article class="panel stack docs-detail-article">
+      {% include "docs/partials/document_meta.html" with document=document %}
+      <div class="docs-markdown">
+        {{ document.html_content|safe }}
+      </div>
+    </article>
+
+    {% if related_documents %}
+      <section class="panel stack docs-section">
+        <h2>Related Documents</h2>
+        <div class="docs-card-grid">
+          {% for related in related_documents %}
+            {% include "docs/partials/document_card.html" with document=related %}
+          {% endfor %}
+        </div>
+      </section>
+    {% endif %}
+
+    <nav class="docs-reading-nav panel">
+      <div>
+        {% if previous_document %}
+          <a href="{{ previous_document.available_url }}">← {{ previous_document.title }}</a>
+        {% endif %}
+      </div>
+      <div>
+        {% if next_document %}
+          <a href="{{ next_document.available_url }}">{{ next_document.title }} →</a>
+        {% endif %}
+      </div>
+    </nav>
+  </div>
+
+  <aside class="docs-sidebar stack">
+    <section class="panel stack docs-section">
+      <h2>Document Details</h2>
+      <div class="docs-meta-rail">
+        <div><strong>Category</strong><br><span class="muted">{{ document.category_title }}</span></div>
+        <div><strong>Audience</strong><br><span class="muted">{{ document.audience|join:", " }}</span></div>
+        <div><strong>Status</strong><br><span class="status">{{ document.status_label }}</span></div>
+        <div><strong>Source</strong><br><code>{{ document.source_path }}</code></div>
+      </div>
+    </section>
+    <section class="panel stack docs-section">
+      <a class="button secondary" href="/docs/">Back To Docs Hub</a>
+      <a class="button secondary" href="/api/v1/docs/{{ document.slug }}/">Docs API Metadata</a>
+    </section>
+  </aside>
+</div>
+{% endblock %}

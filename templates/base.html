@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}ThePeach{% endblock %}</title>
   <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/docs.css' %}">
 </head>
 <body>
   {% include "partials/navbar.html" %}
@@ -16,6 +17,198 @@
     </header>
     {% block content %}{% endblock %}
   </main>
+  <div id="auth-modal" class="auth-modal" hidden>
+    <div id="auth-modal-backdrop" class="auth-modal__backdrop"></div>
+    <div class="auth-modal__dialog" role="dialog" aria-modal="true" aria-labelledby="auth-modal-title">
+      <button id="auth-modal-close" class="auth-modal__close" type="button" aria-label="Close auth modal">×</button>
+      <div class="auth-modal__tabs">
+        <button type="button" class="auth-modal__tab" data-auth-tab="login">Login</button>
+        <button type="button" class="auth-modal__tab" data-auth-tab="signup">Sign Up</button>
+        <button type="button" class="auth-modal__tab" data-auth-tab="logout">Logout</button>
+      </div>
+
+      <section class="auth-modal__panel" data-auth-panel="login">
+        <h2 id="auth-modal-title">Central Login</h2>
+        <p class="muted">Issue centralized JWT credentials from ThePeach.</p>
+        <form id="modal-login-form">
+          <div>
+            <label for="modal-login-email">Email</label>
+            <input id="modal-login-email" name="email" type="email" required>
+          </div>
+          <div>
+            <label for="modal-login-password">Password</label>
+            <input id="modal-login-password" name="password" type="password" required>
+          </div>
+          <button type="submit">Login</button>
+        </form>
+        <pre id="modal-login-result">Login with your centralized ThePeach identity.</pre>
+      </section>
+
+      <section class="auth-modal__panel" data-auth-panel="signup" hidden>
+        <h2>Central Signup</h2>
+        <p class="muted">Create a ThePeach identity that future connected services can trust.</p>
+        <form id="modal-signup-form">
+          <div>
+            <label for="modal-signup-email">Email</label>
+            <input id="modal-signup-email" name="email" type="email" required>
+          </div>
+          <div>
+            <label for="modal-signup-full-name">Full Name</label>
+            <input id="modal-signup-full-name" name="full_name" type="text" required>
+          </div>
+          <div>
+            <label for="modal-signup-smartphone">Smartphone Number</label>
+            <input id="modal-signup-smartphone" name="smartphone_number" type="text" placeholder="+821012345678">
+          </div>
+          <div>
+            <label for="modal-signup-password">Password</label>
+            <input id="modal-signup-password" name="password" type="password" required>
+          </div>
+          <button type="submit">Create Identity</button>
+        </form>
+        <pre id="modal-signup-result">Create a centralized ThePeach account.</pre>
+      </section>
+
+      <section class="auth-modal__panel" data-auth-panel="logout" hidden>
+        <h2>Central Logout</h2>
+        <p class="muted">Revoke the centralized refresh token for this browser session.</p>
+        <div class="stack">
+          <button id="modal-logout-action" type="button">Logout</button>
+          <pre id="modal-logout-result">Logout revokes the stored refresh token and clears local tokens.</pre>
+        </div>
+      </section>
+    </div>
+  </div>
   {% include "partials/footer.html" %}
+  <script>
+    (function initializeAuthModal() {
+      const modal = document.getElementById("auth-modal");
+      const backdrop = document.getElementById("auth-modal-backdrop");
+      const closeButton = document.getElementById("auth-modal-close");
+      const tabs = Array.from(document.querySelectorAll("[data-auth-tab]"));
+      const panels = Array.from(document.querySelectorAll("[data-auth-panel]"));
+      const loginForm = document.getElementById("modal-login-form");
+      const signupForm = document.getElementById("modal-signup-form");
+      const logoutAction = document.getElementById("modal-logout-action");
+      const loginResult = document.getElementById("modal-login-result");
+      const signupResult = document.getElementById("modal-signup-result");
+      const logoutResult = document.getElementById("modal-logout-result");
+      const accessTokenKey = "thepeach_access_token";
+      const refreshTokenKey = "thepeach_refresh_token";
+      const currentUrl = new URL(window.location.href);
+      const requestedAuthTab = currentUrl.searchParams.get("auth");
+      const nextUrl = currentUrl.searchParams.get("next");
+
+      function setActiveTab(name) {
+        tabs.forEach((tab) => {
+          const active = tab.dataset.authTab === name;
+          tab.classList.toggle("is-active", active);
+        });
+        panels.forEach((panel) => {
+          panel.hidden = panel.dataset.authPanel !== name;
+        });
+      }
+
+      function openModal(name) {
+        modal.hidden = false;
+        document.body.classList.add("modal-open");
+        setActiveTab(name);
+      }
+
+      function closeModal() {
+        modal.hidden = true;
+        document.body.classList.remove("modal-open");
+      }
+
+      tabs.forEach((tab) => {
+        tab.addEventListener("click", () => setActiveTab(tab.dataset.authTab));
+      });
+
+      backdrop.addEventListener("click", closeModal);
+      closeButton.addEventListener("click", closeModal);
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !modal.hidden) {
+          closeModal();
+        }
+      });
+
+      loginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(loginForm).entries());
+        const response = await fetch("/api/v1/auth/login/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        loginResult.textContent = JSON.stringify(data, null, 2);
+        if (response.ok && data.success) {
+          localStorage.setItem(accessTokenKey, data.data.access);
+          localStorage.setItem(refreshTokenKey, data.data.refresh);
+          if (window.thePeachSyncNavbarAuthState) {
+            window.thePeachSyncNavbarAuthState();
+          }
+          if (nextUrl) {
+            window.location.href = nextUrl;
+            return;
+          }
+          closeModal();
+        }
+      });
+
+      signupForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const payload = Object.fromEntries(new FormData(signupForm).entries());
+        const response = await fetch("/api/v1/auth/signup/", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json();
+        signupResult.textContent = JSON.stringify(data, null, 2);
+        if (response.ok && data.success) {
+          setActiveTab("login");
+        }
+      });
+
+      logoutAction.addEventListener("click", async () => {
+        const accessToken = localStorage.getItem(accessTokenKey);
+        const refreshToken = localStorage.getItem(refreshTokenKey);
+
+        if (!accessToken || !refreshToken) {
+          logoutResult.textContent = "No stored tokens found.";
+          return;
+        }
+
+        const response = await fetch("/api/v1/auth/logout/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ refresh: refreshToken }),
+        });
+        const data = await response.json();
+        logoutResult.textContent = JSON.stringify(data, null, 2);
+        if (response.ok && data.success) {
+          localStorage.removeItem(accessTokenKey);
+          localStorage.removeItem(refreshTokenKey);
+          if (window.thePeachSyncNavbarAuthState) {
+            window.thePeachSyncNavbarAuthState();
+          }
+          closeModal();
+        }
+      });
+
+      window.thePeachAuthModal = {
+        open: openModal,
+        close: closeModal,
+      };
+
+      if (requestedAuthTab && ["login", "signup", "logout"].includes(requestedAuthTab)) {
+        openModal(requestedAuthTab);
+      }
+    })();
+  </script>
 </body>
 </html>

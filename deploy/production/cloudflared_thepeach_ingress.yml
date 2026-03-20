@@ -1,0 +1,5 @@
+# Merge this ingress block into /etc/cloudflared/config.yml
+- hostname: thepeach.thesysm.com
+  service: http://127.0.0.1:80
+  originRequest:
+    httpHostHeader: thepeach.thesysm.com

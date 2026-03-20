@@ -33,6 +33,28 @@ if not SECRET_KEY:
 DEBUG = env_bool("DJANGO_DEBUG", False)
 ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS")
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS")
+THEPEACH_PUBLIC_DOMAIN = env("THEPEACH_PUBLIC_DOMAIN", "thepeach.thesysm.com")
+THEPEACH_OPS_DOMAIN = env("THEPEACH_OPS_DOMAIN", "ops.thesysm.com")
+THEPEACH_INTERNAL_AUTH_DOMAIN = env("THEPEACH_INTERNAL_AUTH_DOMAIN", "auth-internal.thesysm.com")
+THEPEACH_PUBLIC_BASE_URL = env("THEPEACH_PUBLIC_BASE_URL", f"https://{THEPEACH_PUBLIC_DOMAIN}")
+THEPEACH_OPS_BASE_URL = env("THEPEACH_OPS_BASE_URL", f"https://{THEPEACH_OPS_DOMAIN}")
+THEPEACH_INTERNAL_AUTH_BASE_URL = env(
+    "THEPEACH_INTERNAL_AUTH_BASE_URL",
+    f"https://{THEPEACH_INTERNAL_AUTH_DOMAIN}",
+)
+THEPEACH_INTERNAL_ALLOWED_HOSTS = tuple(
+    env_list(
+        "THEPEACH_INTERNAL_ALLOWED_HOSTS",
+        f"{THEPEACH_OPS_DOMAIN},{THEPEACH_INTERNAL_AUTH_DOMAIN}",
+    )
+)
+THEPEACH_INTERNAL_REQUIRED_HEADERS = tuple(env_list("THEPEACH_INTERNAL_REQUIRED_HEADERS"))
+THEPEACH_INTERNAL_ROUTE_PREFIXES = (
+    "/admin/",
+    "/api/v1/auth/internal/",
+    "/api/v1/gateway/internal/",
+    "/api/v1/gateway/tools/",
+)
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -58,6 +80,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "common.middleware.InternalRouteAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -125,6 +148,7 @@ STATICFILES_DIRS = [BASE_DIR / "static"]
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media_files"
 THEPEACH_LOGO_MAX_UPLOAD_BYTES = int(env("THEPEACH_LOGO_MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+THEPEACH_MEDIA_MAX_UPLOAD_BYTES = int(env("THEPEACH_MEDIA_MAX_UPLOAD_BYTES", str(THEPEACH_LOGO_MAX_UPLOAD_BYTES)))
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
@@ -206,6 +230,12 @@ LOGGING = {
             "formatter": "platform",
             "filters": ["request_context"],
         },
+        "security_file": {
+            "class": "logging.handlers.WatchedFileHandler",
+            "filename": str(LOG_DIR / "security.log"),
+            "formatter": "platform",
+            "filters": ["request_context"],
+        },
     },
     "root": {
         "handlers": ["console", "app_file"],
@@ -222,7 +252,17 @@ LOGGING = {
             "level": env("DJANGO_LOG_LEVEL", "INFO"),
             "propagate": False,
         },
-        "media.logo": {
+        "common.security": {
+            "handlers": ["console", "security_file"],
+            "level": env("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+        "common.docs": {
+            "handlers": ["console", "app_file"],
+            "level": env("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+        "media.asset": {
             "handlers": ["console", "app_file"],
             "level": env("DJANGO_LOG_LEVEL", "INFO"),
             "propagate": False,

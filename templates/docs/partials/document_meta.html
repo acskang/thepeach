@@ -1,0 +1,10 @@
+<header class="docs-document-meta">
+  <div class="docs-document-meta__badges">
+    <span class="status">{{ document.status_label }}</span>
+    <span class="docs-pill">{{ document.category_title }}</span>
+    {% for audience in document.audience %}
+      <span class="docs-pill">{{ audience }}</span>
+    {% endfor %}
+  </div>
+  <div class="muted">Source: <code>{{ document.source_path }}</code></div>
+</header>

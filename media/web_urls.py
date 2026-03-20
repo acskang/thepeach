@@ -1,11 +1,11 @@
 from django.urls import path
 
-from .web_views import LogoFormPageView, LogoListPageView, LogoUploadPageView
+from .web_views import AssetFormPageView, AssetListPageView, AssetUploadPageView
 
 app_name = "media-web"
 
 urlpatterns = [
-    path("logos/", LogoListPageView.as_view(), name="logo-list-page"),
-    path("logos/upload/", LogoUploadPageView.as_view(), name="logo-upload-page"),
-    path("logos/<uuid:pk>/edit/", LogoFormPageView.as_view(), name="logo-edit-page"),
+    path("assets/", AssetListPageView.as_view(), name="asset-list-page"),
+    path("assets/upload/", AssetUploadPageView.as_view(), name="asset-upload-page"),
+    path("assets/<uuid:pk>/edit/", AssetFormPageView.as_view(), name="asset-edit-page"),
 ]

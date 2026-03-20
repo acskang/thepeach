@@ -1,0 +1,18 @@
+[Unit]
+Description=Gunicorn for ThePeach
+After=network.target
+
+[Service]
+Type=notify
+WorkingDirectory=/home/cskang/ganzskang/ThePeach
+Environment=DJANGO_SETTINGS_MODULE=project.settings.prod
+EnvironmentFile=/etc/thepeach/thepeach.env
+ExecStart=/home/cskang/miniconda3/envs/dj5/bin/gunicorn --config /home/cskang/ganzskang/ThePeach/deploy/production/gunicorn_thepeach.config.py project.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=5
+
+[Install]
+WantedBy=default.target

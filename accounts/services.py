@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.db.models import Count
 from rest_framework import exceptions, status
 from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
@@ -30,15 +32,46 @@ def get_auth_architecture_metadata():
     }
 
 
-def build_auth_manifest():
+def build_public_auth_manifest():
     return {
         "module": "accounts",
+        "zone": "public",
         "endpoints": {
             "signup": "/api/v1/auth/signup/",
             "login": "/api/v1/auth/login/",
             "refresh": "/api/v1/auth/token/refresh/",
             "logout": "/api/v1/auth/logout/",
             "me": "/api/v1/auth/me/",
+            "internal_manifest": "/api/v1/auth/internal/",
+        },
+        "architecture": get_auth_architecture_metadata(),
+    }
+
+
+def build_internal_auth_manifest():
+    return {
+        "module": "accounts",
+        "zone": "internal",
+        "public_domain": settings.THEPEACH_PUBLIC_DOMAIN,
+        "ops_domains": [
+            settings.THEPEACH_OPS_DOMAIN,
+            settings.THEPEACH_INTERNAL_AUTH_DOMAIN,
+        ],
+        "public_endpoints": {
+            "root": "/api/v1/auth/",
+            "signup": "/api/v1/auth/signup/",
+            "login": "/api/v1/auth/login/",
+            "refresh": "/api/v1/auth/token/refresh/",
+            "logout": "/api/v1/auth/logout/",
+            "me": "/api/v1/auth/me/",
+        },
+        "internal_endpoints": {
+            "manifest": "/api/v1/auth/internal/",
+            "auth_event_summary": "/api/v1/auth/internal/events/summary/",
+        },
+        "internal_access_policy": {
+            "allowed_hosts": list(settings.THEPEACH_INTERNAL_ALLOWED_HOSTS),
+            "required_headers": list(settings.THEPEACH_INTERNAL_REQUIRED_HEADERS),
         },
         "architecture": get_auth_architecture_metadata(),
     }
@@ -95,6 +128,24 @@ def refresh_tokens(*, request):
         success=True,
     )
     return serializer.validated_data
+
+
+def get_auth_event_summary():
+    aggregated = {
+        item["event_type"]: item["total"]
+        for item in AuthEventLog.objects.values("event_type").annotate(total=Count("id"))
+    }
+    return {
+        "totals_by_event_type": aggregated,
+        "successful_logins": AuthEventLog.objects.filter(
+            event_type=AuthEventLog.EVENT_LOGIN,
+            success=True,
+        ).count(),
+        "failed_attempts": AuthEventLog.objects.filter(
+            event_type=AuthEventLog.EVENT_FAILURE,
+            success=False,
+        ).count(),
+    }
 
 
 def logout_user(*, serializer, request, auth_logger):

@@ -2,6 +2,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 
 from accounts.models import Company, Department, UserCompanyMembership, UserDepartmentMembership
 from gateway.serializers import GatewayRouteResolveSerializer
@@ -36,7 +37,13 @@ class GatewayAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn("routing-layer", response.data["data"]["role"])
         self.assertIn("gateway", response.data["data"]["modules"])
+        self.assertIn("internal_endpoints", response.data["data"])
 
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=(),
+    )
     def test_gateway_route_catalog_includes_company_scoped_services(self):
         user_model = get_user_model()
         company = Company.objects.create(name="Gateway Alpha", code="gateway-alpha")
@@ -58,13 +65,18 @@ class GatewayAPITestCase(APITestCase):
         )
 
         self.client.force_authenticate(user=user)
-        response = self.client.get("/api/v1/gateway/routes/", format="json")
+        response = self.client.get("/api/v1/gateway/internal/routes/", format="json", HTTP_HOST="ops.thesysm.com")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         route_codes = {route["code"] for route in response.data["data"]["routes"]}
         self.assertIn("gateway", route_codes)
         self.assertIn("service:gateway-billing", route_codes)
 
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=(),
+    )
     def test_gateway_resolve_returns_service_target(self):
         user_model = get_user_model()
         company = Company.objects.create(name="Gateway Beta", code="gateway-beta")
@@ -86,12 +98,13 @@ class GatewayAPITestCase(APITestCase):
 
         self.client.force_authenticate(user=user)
         response = self.client.post(
-            "/api/v1/gateway/resolve/",
+            "/api/v1/gateway/internal/resolve/",
             {
                 "method": "GET",
                 "service_code": "resolver-service",
             },
             format="json",
+            HTTP_HOST="ops.thesysm.com",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -99,14 +112,20 @@ class GatewayAPITestCase(APITestCase):
         self.assertEqual(response.data["data"]["target_type"], "service")
         self.assertEqual(response.data["data"]["service"]["code"], "resolver-service")
 
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=(),
+    )
     def test_gateway_resolve_returns_404_for_unknown_target(self):
         response = self.client.post(
-            "/api/v1/gateway/resolve/",
+            "/api/v1/gateway/internal/resolve/",
             {
                 "method": "GET",
                 "service_code": "missing-service",
             },
             format="json",
+            HTTP_HOST="ops.thesysm.com",
         )
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -123,19 +142,36 @@ class GatewayAPITestCase(APITestCase):
             )
             self.assertTrue(serializer.is_valid(), msg=f"module={module} should be accepted")
 
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com", "thepeach.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=(),
+    )
     def test_gateway_resolve_accepts_services_root_module(self):
         response = self.client.post(
-            "/api/v1/gateway/resolve/",
+            "/api/v1/gateway/internal/resolve/",
             {
                 "method": "GET",
                 "module": "services",
             },
             format="json",
+            HTTP_HOST="ops.thesysm.com",
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data["data"]["resolved"])
         self.assertEqual(response.data["data"]["module"], "services")
+
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com", "thepeach.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=(),
+    )
+    def test_internal_gateway_endpoints_are_blocked_on_public_host(self):
+        response = self.client.get("/api/v1/gateway/internal/", format="json", HTTP_HOST="thepeach.thesysm.com")
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.data["error"]["code"], "internal_access_required")
 
     def test_gateway_integrations_applications_requires_auth_and_returns_company_scope(self):
         anonymous_response = self.client.get("/api/v1/gateway/integrations/applications/", format="json")
@@ -166,3 +202,28 @@ class GatewayAPITestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["data"]["applications"]), 1)
         self.assertEqual(response.data["data"]["applications"][0]["app_code"], "ops-console")
+
+    @override_settings(
+        ALLOWED_HOSTS=["testserver", "ops.thesysm.com"],
+        THEPEACH_INTERNAL_ALLOWED_HOSTS=("ops.thesysm.com",),
+        THEPEACH_INTERNAL_REQUIRED_HEADERS=("CF-Access-Authenticated-User-Email",),
+    )
+    def test_internal_gateway_endpoint_can_require_proxy_headers(self):
+        user_model = get_user_model()
+        user = user_model.objects.create_user(
+            email="ops-header@example.com",
+            password="StrongPass123",
+            smartphone_number="+821088880013",
+        )
+        self.client.force_authenticate(user=user)
+
+        denied = self.client.get("/api/v1/gateway/internal/", format="json", HTTP_HOST="ops.thesysm.com")
+        self.assertEqual(denied.status_code, status.HTTP_403_FORBIDDEN)
+
+        allowed = self.client.get(
+            "/api/v1/gateway/internal/",
+            format="json",
+            HTTP_HOST="ops.thesysm.com",
+            HTTP_CF_ACCESS_AUTHENTICATED_USER_EMAIL="ops@example.com",
+        )
+        self.assertEqual(allowed.status_code, status.HTTP_200_OK)

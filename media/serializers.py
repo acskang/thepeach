@@ -2,9 +2,8 @@ from rest_framework import serializers
 
 from accounts.models import Company
 from common.tenancy import validate_company_membership
-from services.models import RegisteredApplication
 
-from .models import MediaAsset, PlatformLogoAsset
+from .models import MediaAsset, SharedMediaAsset
 
 
 class MediaAssetSerializer(serializers.ModelSerializer):
@@ -84,48 +83,40 @@ class MediaAssetSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class PlatformLogoAssetReadSerializer(serializers.ModelSerializer):
-    application = serializers.SerializerMethodField()
+class SharedMediaAssetReadSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     created_by = serializers.SerializerMethodField()
-    updated_by = serializers.SerializerMethodField()
 
     class Meta:
-        model = PlatformLogoAsset
+        model = SharedMediaAsset
         fields = (
             "id",
-            "application",
-            "logo_code",
-            "logo_name",
+            "title",
             "original_file_name",
+            "stored_file_name",
             "file_url",
             "file_size",
             "mime_type",
             "width",
             "height",
+            "checksum_sha256",
             "alt_text",
-            "usage_type",
+            "description",
+            "media_kind",
             "is_active",
             "created_by",
-            "updated_by",
             "created_at",
             "updated_at",
         )
         read_only_fields = fields
 
-    def get_application(self, obj):
-        return {
-            "id": str(obj.application_id),
-            "app_code": obj.application.app_code,
-            "app_name": obj.application.app_name,
-            "company_id": str(obj.application.company_id),
-        }
-
     def get_file_url(self, obj):
         request = self.context.get("request")
+        if not obj.file:
+            return ""
         if request is None:
-            return obj.image_file.url
-        return request.build_absolute_uri(obj.image_file.url)
+            return obj.file.url
+        return request.build_absolute_uri(obj.file.url)
 
     def _serialize_user(self, user):
         if user is None:
@@ -139,24 +130,18 @@ class PlatformLogoAssetReadSerializer(serializers.ModelSerializer):
     def get_created_by(self, obj):
         return self._serialize_user(obj.created_by)
 
-    def get_updated_by(self, obj):
-        return self._serialize_user(obj.updated_by)
 
-
-class PlatformLogoAssetCreateSerializer(serializers.ModelSerializer):
-    application_code = serializers.SlugField(write_only=True)
-    image_file = serializers.FileField(write_only=True)
+class SharedMediaAssetCreateSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(write_only=True)
 
     class Meta:
-        model = PlatformLogoAsset
+        model = SharedMediaAsset
         fields = (
             "id",
-            "application_code",
-            "logo_code",
-            "logo_name",
-            "image_file",
+            "file",
+            "title",
             "alt_text",
-            "usage_type",
+            "description",
         )
         read_only_fields = ("id",)
 
@@ -165,25 +150,11 @@ class PlatformLogoAssetCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("alt_text must be 255 characters or fewer.")
         return value
 
-    def validate(self, attrs):
-        application_code = attrs.pop("application_code")
-        application = (
-            RegisteredApplication.objects.select_related("company")
-            .filter(app_code=application_code)
-            .first()
-        )
-        if application is None:
-            raise serializers.ValidationError({"application_code": "Registered application was not found."})
-        if not application.is_active:
-            raise serializers.ValidationError({"application_code": "Inactive applications cannot receive active logos."})
-        attrs["application"] = application
-        return attrs
 
-
-class PlatformLogoAssetUpdateSerializer(serializers.ModelSerializer):
+class SharedMediaAssetUpdateSerializer(serializers.ModelSerializer):
     class Meta:
-        model = PlatformLogoAsset
-        fields = ("logo_name", "alt_text", "usage_type", "is_active")
+        model = SharedMediaAsset
+        fields = ("title", "alt_text", "description", "is_active")
 
     def validate_alt_text(self, value):
         if len(value) > 255:
@@ -191,5 +162,5 @@ class PlatformLogoAssetUpdateSerializer(serializers.ModelSerializer):
         return value
 
 
-class PlatformLogoAssetReplaceSerializer(serializers.Serializer):
-    image_file = serializers.FileField()
+class SharedMediaAssetReplaceSerializer(serializers.Serializer):
+    file = serializers.FileField()

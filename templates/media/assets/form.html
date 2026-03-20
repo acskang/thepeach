@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Shared Image | ThePeach{% endblock %}
+{% block hero_title %}Manage Shared Image{% endblock %}
+{% block hero_subtitle %}Update metadata, replace the file safely, or deactivate the asset while preserving a stable reusable media URL contract.{% endblock %}
+
+{% block content %}
+<div class="grid two">
+  <section class="panel stack">
+    <div>
+      <h2>Metadata</h2>
+      <form id="asset-meta-form">
+        <div>
+          <label for="title">Title</label>
+          <input id="title" name="title" type="text">
+        </div>
+        <div>
+          <label for="alt_text">Alt Text</label>
+          <input id="alt_text" name="alt_text" type="text">
+        </div>
+        <div>
+          <label for="description">Description</label>
+          <textarea id="description" name="description" rows="4"></textarea>
+        </div>
+        <button type="submit">Update Metadata</button>
+      </form>
+    </div>
+    <div>
+      <h2>Replace File</h2>
+      <form id="asset-replace-form" enctype="multipart/form-data">
+        <div>
+          <label for="file">New Image File</label>
+          <input id="file" name="file" type="file" accept=".png,.jpg,.jpeg" required>
+        </div>
+        <button type="submit" class="secondary">Replace Image File</button>
+      </form>
+    </div>
+    <div class="nav">
+      <button id="deactivate-asset" type="button" class="secondary">Deactivate Asset</button>
+    </div>
+  </section>
+  <section class="panel stack">
+    <div>
+      <h2>Current Asset</h2>
+      <pre id="asset-detail-result">Loading shared asset...</pre>
+    </div>
+    <div id="asset-preview"></div>
+  </section>
+</div>
+
+<script>
+  const assetId = "{{ asset_id }}";
+  const result = document.getElementById("asset-detail-result");
+  const preview = document.getElementById("asset-preview");
+
+  async function fetchAsset() {
+    const token = localStorage.getItem("thepeach_access_token");
+    if (!token) {
+      result.textContent = "Login first to manage a shared asset.";
+      return;
+    }
+
+    const response = await fetch(`/api/v1/media/assets/${assetId}/`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await response.json();
+    result.textContent = JSON.stringify(payload, null, 2);
+
+    if (!payload.success) {
+      return;
+    }
+
+    const data = payload.data;
+    document.getElementById("title").value = data.title || "";
+    document.getElementById("alt_text").value = data.alt_text || "";
+    document.getElementById("description").value = data.description || "";
+    preview.innerHTML = data.file_url
+      ? `<img src="${data.file_url}" alt="${data.alt_text || data.title || data.original_file_name}" style="max-width:240px;border-radius:12px;border:1px solid #d8c8ad;">`
+      : "";
+  }
+
+  document.getElementById("asset-meta-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const token = localStorage.getItem("thepeach_access_token");
+    const payload = Object.fromEntries(new FormData(event.target).entries());
+    const response = await fetch(`/api/v1/media/assets/${assetId}/`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    result.textContent = JSON.stringify(await response.json(), null, 2);
+    fetchAsset();
+  });
+
+  document.getElementById("asset-replace-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const token = localStorage.getItem("thepeach_access_token");
+    const formData = new FormData(event.target);
+    const response = await fetch(`/api/v1/media/assets/${assetId}/replace/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    result.textContent = JSON.stringify(await response.json(), null, 2);
+    fetchAsset();
+  });
+
+  document.getElementById("deactivate-asset").addEventListener("click", async () => {
+    const token = localStorage.getItem("thepeach_access_token");
+    const response = await fetch(`/api/v1/media/assets/${assetId}/deactivate/`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    result.textContent = JSON.stringify(await response.json(), null, 2);
+    fetchAsset();
+  });
+
+  fetchAsset();
+</script>
+{% endblock %}

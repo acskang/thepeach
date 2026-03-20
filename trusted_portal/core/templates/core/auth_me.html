@@ -1,0 +1,62 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Trusted Portal Auth Me</title>
+    <link rel="stylesheet" href="{% static 'core/site.css' %}">
+  </head>
+  <body>
+    <header class="site-header">
+      <nav class="navbar">
+        <a class="brand" href="/">Trusted Portal</a>
+        <div class="nav-links">
+          <a href="/">Home</a>
+          <a href="/auth/login/">Login</a>
+          <a href="/api/v1/auth/me/">Auth Me</a>
+          <a href="/api/v1/example/auth-status/">Auth Status API</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="hero-shell">
+      <section class="hero-card">
+        <p class="eyebrow">Compatibility View</p>
+        <h1>Authenticated user context from ThePeach upstream auth.</h1>
+        <p class="lede">
+          This route exists inside `trusted_portal`, but it still trusts ThePeach as the
+          source of truth. No local user row is created here.
+        </p>
+
+        <div class="status-grid">
+          <article class="status-card">
+            <span class="status-label">Email</span>
+            <strong>{% if user %}{{ user.email }}{% else %}No token supplied{% endif %}</strong>
+          </article>
+          <article class="status-card">
+            <span class="status-label">Full Name</span>
+            <strong>{% if user %}{{ user.full_name|default:user.display_name }}{% else %}Anonymous visitor{% endif %}</strong>
+          </article>
+          <article class="status-card">
+            <span class="status-label">Source</span>
+            <strong>{{ payload.source }}</strong>
+          </article>
+        </div>
+
+        <section class="detail-panel">
+          {% if not user %}
+          <h2>How to use this route</h2>
+          <p>
+            Open this page with a `Bearer` token issued by ThePeach, or let an upstream put the
+            token into the configured session key. Without that token, this page can explain the
+            contract but cannot authenticate you locally.
+          </p>
+          {% endif %}
+          <h2>Normalized Context</h2>
+          <pre class="payload-block">{{ payload|pprint }}</pre>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Shared Image | ThePeach{% endblock %}
+{% block hero_title %}Upload Shared Image{% endblock %}
+{% block hero_subtitle %}Store one image once in ThePeach and reuse the returned URL across multiple Django projects and frontend applications.{% endblock %}
+
+{% block content %}
+<div id="asset-upload-page" class="grid two" hidden>
+  <section class="panel">
+    <h2>Image Upload</h2>
+    <form id="asset-upload-form" enctype="multipart/form-data">
+      <div>
+        <label for="title">Title</label>
+        <input id="title" name="title" type="text">
+      </div>
+      <div>
+        <label for="alt_text">Alt Text</label>
+        <input id="alt_text" name="alt_text" type="text">
+      </div>
+      <div>
+        <label for="description">Description</label>
+        <textarea id="description" name="description" rows="4"></textarea>
+      </div>
+      <div>
+        <label for="file">Image File</label>
+        <input id="file" name="file" type="file" accept=".png,.jpg,.jpeg" required>
+      </div>
+      <button type="submit">Upload Shared Image</button>
+    </form>
+    <p id="asset-upload-status" class="muted">Login is required before uploading a shared image asset.</p>
+  </section>
+  <section class="panel stack">
+    <div>
+      <h2>API Target</h2>
+      <pre>POST /api/v1/media/assets/</pre>
+    </div>
+    <div>
+      <h2>Usage Goal</h2>
+      <p class="muted">After upload, reuse the returned file URL directly from frontend or server-rendered applications without duplicating file storage.</p>
+    </div>
+    <div>
+      <h2>Response</h2>
+      <pre id="asset-upload-result">Submit the form to create or deduplicate a shared image asset.</pre>
+    </div>
+  </section>
+</div>
+
+<script>
+  const token = localStorage.getItem("thepeach_access_token");
+  const uploadPage = document.getElementById("asset-upload-page");
+
+  async function requireUploadLogin() {
+    if (!token) {
+      window.location.replace("/?auth=login&next=/assets/upload/");
+      return false;
+    }
+
+    const response = await fetch("/api/v1/auth/me/", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    if (!response.ok) {
+      localStorage.removeItem("thepeach_access_token");
+      localStorage.removeItem("thepeach_refresh_token");
+      window.location.replace("/?auth=login&next=/assets/upload/");
+      return false;
+    }
+
+    uploadPage.hidden = false;
+    return true;
+  }
+
+  document.getElementById("asset-upload-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const result = document.getElementById("asset-upload-result");
+    const status = document.getElementById("asset-upload-status");
+    if (!token) {
+      const message = "Login first to upload a shared asset.";
+      status.textContent = message;
+      result.textContent = message;
+      return;
+    }
+
+    status.textContent = "Uploading shared image...";
+    const formData = new FormData(event.target);
+    const response = await fetch("/api/v1/media/assets/", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    });
+    const payload = await response.json();
+    status.textContent = payload.success
+      ? "Shared image uploaded successfully."
+      : (payload.error && payload.error.message) || "Upload failed.";
+    result.textContent = JSON.stringify(payload, null, 2);
+    result.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  requireUploadLogin();
+</script>
+{% endblock %}

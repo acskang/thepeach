@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}Shared Image Assets | ThePeach{% endblock %}
+{% block hero_title %}Shared Image Server{% endblock %}
+{% block hero_subtitle %}Browse centralized images that can be reused directly by multiple frontend apps and Django services through stable media URLs.{% endblock %}
+
+{% block content %}
+<div class="panel stack">
+  <div class="nav">
+    <a class="button" href="/assets/upload/">Upload Image</a>
+    <button id="load-assets" type="button" class="secondary">Refresh</button>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Preview</th>
+        <th>Title</th>
+        <th>Stored Name</th>
+        <th>MIME</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody id="asset-table-body">
+      <tr><td colspan="5" class="muted">Load assets from /api/v1/media/assets/.</td></tr>
+    </tbody>
+  </table>
+  <pre id="asset-list-result">The standardized response envelope will appear here.</pre>
+</div>
+
+<script>
+  async function loadAssets() {
+    const token = localStorage.getItem("thepeach_access_token");
+    const result = document.getElementById("asset-list-result");
+    const body = document.getElementById("asset-table-body");
+
+    if (!token) {
+      result.textContent = "Login first to view shared assets.";
+      return;
+    }
+
+    const response = await fetch("/api/v1/media/assets/", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const payload = await response.json();
+    result.textContent = JSON.stringify(payload, null, 2);
+
+    const rows = (payload.data && payload.data.results) || [];
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" class="muted">No shared assets found.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = rows.map((row) => `
+      <tr>
+        <td>${row.file_url ? `<img src="${row.file_url}" alt="${row.alt_text || row.title || row.original_file_name}" style="max-width:64px;max-height:64px;border-radius:8px;border:1px solid #d8c8ad;">` : ""}</td>
+        <td><a href="/assets/${row.id}/edit/">${row.title || row.original_file_name}</a></td>
+        <td><span class="muted">${row.stored_file_name}</span></td>
+        <td>${row.mime_type}</td>
+        <td><span class="status">${row.is_active ? "Active" : "Inactive"}</span></td>
+      </tr>
+    `).join("");
+  }
+
+  document.getElementById("load-assets").addEventListener("click", loadAssets);
+  loadAssets();
+</script>
+{% endblock %}
